@@ -28,17 +28,21 @@ bring your own API keys.
 
 ## code search
 
-Semantic search
+### Semantic search
 
     uv tool install semble
     semble install
     uv tool upgrade semble   # upgrade
     uv cache clean semble    # for MCP users (restart your MCP client after)
 
-Graph search
+### Graph search
 
     uv tool install graphifyy
     graphify install --platform pi
 
 ## subagents
     pi install git:github.com/HazAT/pi-interactive-subagents
+
+## rtk
+    cargo install --git https://github.com/rtk-ai/rtk
+    rtk init -g --agent pi
