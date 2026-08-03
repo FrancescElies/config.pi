@@ -4,7 +4,8 @@
     "git:github.com/DietrichGebert/ponytail@v4.8.4",
     "git:github.com/chandra447/pi-hermes-memory@v0.9.1",
     "npm:@ff-labs/pi-fff@0.10.1",
-    "npm:pi-web-access@0.15.0"
+    "npm:pi-web-access@0.15.0",
+    "npm:pi-agent-browser-native@0.2.72"
   ],
   "theme": "dark",
   "extensions": [
@@ -18,5 +19,5 @@
   "hideThinkingBlock": false,
   "defaultThinkingLevel": "low",
   "defaultProvider": "github-copilot",
-  "defaultModel": "claude-opus-4.7"
+  "defaultModel": "claude-sonnet-5"
 }
