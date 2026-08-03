@@ -46,3 +46,13 @@ bring your own API keys.
 ## rtk
     cargo install --git https://github.com/rtk-ai/rtk
     rtk init -g --agent pi
+
+## agent browser
+
+    "npm:pi-agent-browser-native@0.2.72"
+    cargo install agent-browser
+    agent-browser install  # Download Chrome from Chrome for Testing (first time only)
+
+## usage: Analyze coding (agent) CLI token usage and costs from local data.
+
+    npm install -g ccusage
