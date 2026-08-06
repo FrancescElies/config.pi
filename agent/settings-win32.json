@@ -12,11 +12,12 @@
   ],
   "skills": [
     "-skills/graphify/SKILL.md",
-    "-skills/zellij/SKILL.md"
+    "-skills/zellij/SKILL.md",
+    "+skills\\graphify\\SKILL.md"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
   "defaultThinkingLevel": "low",
   "defaultProvider": "github-copilot",
-  "defaultModel": "claude-sonnet-5"
+  "defaultModel": "claude-opus-4.6"
 }
