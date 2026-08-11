@@ -37,7 +37,7 @@ export def "config pi" [] {
     cd ($current_dir | path join agent)
     let settings_json = match $nu.os-info.name {
         "windows" => 'settings-win32.json',
-        _ => 'json' ,
+        _ => 'settings-unix.json' ,
     }
     symlink --force $settings_json settings.json
 }
