@@ -1,0 +1,10 @@
+{
+  "name": "pi-extensions",
+  "private": true,
+  "dependencies": {
+    "@ff-labs/pi-fff": "^0.10.1",
+    "@ollama/pi-web-search": "^0.0.5",
+    "pi-autoresearch": "^1.6.2",
+    "pi-web-access": "^0.15.0"
+  }
+}
