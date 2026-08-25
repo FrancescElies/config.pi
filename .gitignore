@@ -44,7 +44,6 @@ agent/mcp-npx-cache.json
 agent/mcp-onboarding.json
 agent/models-store.json
 agent/models.json
-agent/npm/
 agent/pi-hermes-memory/
 agent/projects-memory/
 agent/sessions
