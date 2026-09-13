@@ -19,7 +19,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, basename } from "node:path";
 import { execFile } from "node:child_process";
@@ -244,7 +244,6 @@ let activeDispatch: {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pendingNotifications: string[] = [];
-const tempFiles = new Set<string>();
 
 function startPolling() {
   stopPolling();
@@ -418,14 +417,6 @@ function generateTaskId(): string {
   return `${now.getUTCFullYear()}${p(now.getUTCMonth() + 1)}${p(now.getUTCDate())}_${p(now.getUTCHours())}${p(now.getUTCMinutes())}${p(now.getUTCSeconds())}`;
 }
 
-/**
- * Single-quote a string for safe embedding in a bash script/argument list,
- * escaping any embedded single quotes using the standard '\'' technique.
- */
-function shQuote(str: string): string {
-  return `'${str.replace(/'/g, `'\\''`)}'`;
-}
-
 // ════════════════════════════════════════════════════════════════
 //  Grid layout engine
 // ════════════════════════════════════════════════════════════════
@@ -442,10 +433,16 @@ function shQuote(str: string): string {
  *   5-6      → 3 columns, split as needed
  *   7-9      → 3x3
  */
+/** A single agent's launch command: the argv to run directly in a new pane. */
+interface LaunchCommand {
+  args: string[]; // e.g. ["pi", "--no-extensions", ..., "task text"]
+  title: string;
+}
+
 async function spawnGridLayout(
   count: number,
   workDir: string,
-  scripts: { path: string; title: string }[]
+  commands: LaunchCommand[]
 ): Promise<string[]> {
   const paneIds: string[] = [];
 
@@ -453,7 +450,7 @@ async function spawnGridLayout(
 
   // Spawn first pane in a new tab
   const firstId = (
-    await runCommand("wezterm", ["cli", "spawn", "--cwd", workDir, "--", "bash", scripts[0].path])
+    await runCommand("wezterm", ["cli", "spawn", "--cwd", workDir, "--", ...commands[0].args])
   ).trim();
   paneIds.push(firstId);
   await runCommand("wezterm", ["cli", "set-tab-title", "--pane-id", firstId, "Dispatch"]).catch(() => {});
@@ -471,9 +468,9 @@ async function spawnGridLayout(
   for (let c = 1; c < cols; c++) {
     const percent = Math.round(100 / (cols - c + 1));
     const parentPane = columnPanes[c - 1];
-    const script = scripts[c < count ? c : 0]; // fallback to first if overflow
+    const command = commands[c < count ? c : 0]; // fallback to first if overflow
     const newId = (
-      await runCommand("wezterm", ["cli", "split-pane", "--pane-id", parentPane, "--right", "--percent", String(percent), "--cwd", workDir, "--", "bash", script.path])
+      await runCommand("wezterm", ["cli", "split-pane", "--pane-id", parentPane, "--right", "--percent", String(percent), "--cwd", workDir, "--", ...command.args])
     ).trim();
     columnPanes.push(newId);
     if (c < count) paneIds.push(newId);
@@ -489,9 +486,9 @@ async function spawnGridLayout(
       if (agentIdx >= count) break;
 
       const percent = Math.round(100 / (rows - r + 1));
-      const script = scripts[agentIdx];
+      const command = commands[agentIdx];
       const newId = (
-        await runCommand("wezterm", ["cli", "split-pane", "--pane-id", currentPane, "--bottom", "--percent", String(percent), "--cwd", workDir, "--", "bash", script.path])
+        await runCommand("wezterm", ["cli", "split-pane", "--pane-id", currentPane, "--bottom", "--percent", String(percent), "--cwd", workDir, "--", ...command.args])
       ).trim();
       paneIds.push(newId);
       currentPane = newId;
@@ -506,17 +503,17 @@ async function spawnGridLayout(
  */
 async function spawnTabLayout(
   workDir: string,
-  scripts: { path: string; title: string }[]
+  commands: LaunchCommand[]
 ): Promise<string[]> {
   const paneIds: string[] = [];
 
-  for (const script of scripts) {
+  for (const command of commands) {
     const id = (
-      await runCommand("wezterm", ["cli", "spawn", "--cwd", workDir, "--", "bash", script.path])
+      await runCommand("wezterm", ["cli", "spawn", "--cwd", workDir, "--", ...command.args])
     ).trim();
     paneIds.push(id);
     if (id) {
-      await runCommand("wezterm", ["cli", "set-tab-title", "--pane-id", id, script.title]).catch(() => {});
+      await runCommand("wezterm", ["cli", "set-tab-title", "--pane-id", id, command.title]).catch(() => {});
     }
   }
   return paneIds;
@@ -548,7 +545,7 @@ async function executeDispatch(
   const allAgentDefs = loadAllAgents(cwd);
   const agentMap = new Map(allAgentDefs.map((a) => [a.name, a]));
   const manifestAgents: ManifestAgent[] = [];
-  const scripts: { path: string; title: string }[] = [];
+  const commands: LaunchCommand[] = [];
   const results: string[] = [];
 
   results.push(`== Task ${taskId}: ${taskSummary} ==`);
@@ -658,73 +655,34 @@ async function executeDispatch(
       "YOUR WORK IS LOST if you don't save. Save even if your findings are incomplete.",
     ].join("\n");
 
-    // Write system prompt to a temp file (UTF-8; bash/pi read this natively as UTF-8)
-    const scriptId = `dispatch_${agentName}_${Date.now()}`;
-    const systemPromptPath = join(homedir(), ".pi", "agent", `${scriptId}_system.txt`);
-    writeFileSync(systemPromptPath, systemPromptContent, "utf-8");
-    tempFiles.add(systemPromptPath);
-
-    // Write the user prompt to a separate UTF-8 file — avoids shell argument-splitting
-    // issues (a multi-line/multi-word prompt passed as a raw CLI argument can get
-    // mangled by quoting or word-splitting depending on the invoking shell).
-    const promptPath = join(homedir(), ".pi", "agent", `${scriptId}_prompt.txt`);
-    writeFileSync(promptPath, task, "utf-8");
-    tempFiles.add(promptPath);
-
-    // Build bash script
-    const scriptPath = join(homedir(), ".pi", "agent", `${scriptId}.sh`);
-
+    // Build the tool list available to this agent.
     const tools = new Set(agentSummary?.tools?.length ? agentSummary.tools : ["read", "bash", "grep", "find", "ls"]);
     tools.add("write");
     tools.add("bash");
+    const toolsArg = [...tools].join(",");
 
-    let modelFlag = "";
+    // Build the pi CLI invocation as a plain argv array. We call `wezterm cli
+    // spawn`/`split-pane` with this array directly (no shell, no wrapper
+    // script) — system prompt and task text are passed as ordinary arguments,
+    // preserved exactly (including newlines) since nothing re-parses argv.
+    //
+    // --no-extensions / --no-skills / --system-prompt / --tools replace pi's
+    // default behavior so the subagent runs in isolation (no Agent tool, no
+    // skills, custom system prompt, explicit tool list).
+    // --model is only passed if explicitly overridden — otherwise pi uses the
+    // user's default model from settings.json.
+    const piArgs: string[] = ["pi", "--no-extensions", "--no-skills"];
     if (dispatch.model_override) {
       const modelArg = thinking !== "off" ? `${dispatch.model_override}:${thinking}` : dispatch.model_override;
-      modelFlag = ` --model ${shQuote(modelArg)}`;
+      piArgs.push("--model", modelArg);
     } else if (thinking !== "off") {
-      // Apply thinking level to default model via env-free flag
-      modelFlag = ` --thinking ${shQuote(thinking)}`;
+      piArgs.push("--thinking", thinking);
     }
+    piArgs.push("--system-prompt", systemPromptContent);
+    piArgs.push("--tools", toolsArg);
+    piArgs.push(task);
 
-    // Note on --no-extensions / --no-skills / --system-prompt / --tools:
-    //   These replace pi's default behavior so the subagent runs in isolation
-    //   (no Agent tool, no skills, custom system prompt, explicit tool list).
-    // Note on --model: only passed if explicitly overridden — otherwise pi uses
-    //   the user's default model from settings.json.
-    const toolsArg = [...tools].join(",");
-    const piCmd = `pi --no-extensions --no-skills${modelFlag} --system-prompt '@${systemPromptPath}' --tools ${shQuote(toolsArg)}`;
-
-    // Build the script.
-    //
-    // We pass the prompt via pi's `@file` syntax: `pi ... @prompt.txt` tells pi
-    // to read the file contents and use them as the initial message. This avoids
-    // any shell word-splitting / quoting edge cases that could occur if the raw
-    // (possibly multi-line) prompt text were passed directly as an argument.
-    const lines: string[] = [
-      `#!/usr/bin/env bash`,
-      `set -uo pipefail`,
-      ``,
-      // Best-effort terminal title (OSC 0/2 escape sequence)
-      `printf '\\033]0;%s\\007' ${shQuote(tabTitle)}`,
-      ``,
-      `${piCmd} '@${promptPath}'`,
-      ``,
-      // Fallback: capture terminal if agent didn't save
-      `if [ ! -f ${shQuote(resultFilePath)} ]; then`,
-      `  if [ -n "\${WEZTERM_PANE:-}" ]; then`,
-      `    wezterm cli get-text --pane-id "$WEZTERM_PANE" > ${shQuote(resultFilePath)} 2>/dev/null || true`,
-      `  fi`,
-      `fi`,
-      ``,
-      `rm -f ${shQuote(scriptPath)} ${shQuote(systemPromptPath)} ${shQuote(promptPath)}`,
-      ``,
-    ];
-    const script = lines.join("\n");
-
-    writeFileSync(scriptPath, script, "utf-8");
-    tempFiles.add(scriptPath);
-    scripts.push({ path: scriptPath, title: tabTitle });
+    commands.push({ args: piArgs, title: tabTitle });
 
     const displayModel = dispatch.model_override || "(pi default)";
     manifestAgents.push({
@@ -740,9 +698,9 @@ async function executeDispatch(
   let paneIds: string[] = [];
   try {
     if (layout === "grid" && agents.length > 1) {
-      paneIds = await spawnGridLayout(agents.length, workingDir, scripts);
+      paneIds = await spawnGridLayout(agents.length, workingDir, commands);
     } else {
-      paneIds = await spawnTabLayout(workingDir, scripts);
+      paneIds = await spawnTabLayout(workingDir, commands);
     }
 
     // Map pane IDs back to manifest
@@ -760,7 +718,7 @@ async function executeDispatch(
 
     // Fallback to tabs
     try {
-      paneIds = await spawnTabLayout(workingDir, scripts);
+      paneIds = await spawnTabLayout(workingDir, commands);
       for (let i = 0; i < paneIds.length && i < manifestAgents.length; i++) {
         manifestAgents[i].paneId = paneIds[i];
         results.push(`[OK] ${manifestAgents[i].displayName} | ${manifestAgents[i].model} | pane:${paneIds[i]}`);
@@ -1166,10 +1124,4 @@ The 'task' is the specific task ALL agents will work on (appended to their syste
     ctx.ui.notify(lines.join("\n"), "info");
     ctx.ui.setWidget("dispatch-status", lines);
   }});
-
-  process.on("exit", () => {
-    for (const f of tempFiles) {
-      try { unlinkSync(f); } catch {}
-    }
-  });
 }
