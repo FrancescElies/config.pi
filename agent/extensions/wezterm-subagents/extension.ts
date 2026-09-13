@@ -418,6 +418,14 @@ function generateTaskId(): string {
   return `${now.getUTCFullYear()}${p(now.getUTCMonth() + 1)}${p(now.getUTCDate())}_${p(now.getUTCHours())}${p(now.getUTCMinutes())}${p(now.getUTCSeconds())}`;
 }
 
+/**
+ * Single-quote a string for safe embedding in a bash script/argument list,
+ * escaping any embedded single quotes using the standard '\'' technique.
+ */
+function shQuote(str: string): string {
+  return `'${str.replace(/'/g, `'\\''`)}'`;
+}
+
 // ════════════════════════════════════════════════════════════════
 //  Grid layout engine
 // ════════════════════════════════════════════════════════════════
@@ -439,15 +447,13 @@ async function spawnGridLayout(
   workDir: string,
   scripts: { path: string; title: string }[]
 ): Promise<string[]> {
-  const winWorkDir = workDir.replace(/\//g, "\\");
   const paneIds: string[] = [];
 
   if (count === 0) return paneIds;
 
   // Spawn first pane in a new tab
-  const firstScript = scripts[0].path.replace(/\//g, "\\");
   const firstId = (
-    await runCommand("wezterm", ["cli", "spawn", "--cwd", winWorkDir, "--", "powershell.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", firstScript])
+    await runCommand("wezterm", ["cli", "spawn", "--cwd", workDir, "--", "bash", scripts[0].path])
   ).trim();
   paneIds.push(firstId);
   await runCommand("wezterm", ["cli", "set-tab-title", "--pane-id", firstId, "Dispatch"]).catch(() => {});
@@ -466,9 +472,8 @@ async function spawnGridLayout(
     const percent = Math.round(100 / (cols - c + 1));
     const parentPane = columnPanes[c - 1];
     const script = scripts[c < count ? c : 0]; // fallback to first if overflow
-    const scriptWin = script.path.replace(/\//g, "\\");
     const newId = (
-      await runCommand("wezterm", ["cli", "split-pane", "--pane-id", parentPane, "--right", "--percent", String(percent), "--cwd", winWorkDir, "--", "powershell.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptWin])
+      await runCommand("wezterm", ["cli", "split-pane", "--pane-id", parentPane, "--right", "--percent", String(percent), "--cwd", workDir, "--", "bash", script.path])
     ).trim();
     columnPanes.push(newId);
     if (c < count) paneIds.push(newId);
@@ -485,9 +490,8 @@ async function spawnGridLayout(
 
       const percent = Math.round(100 / (rows - r + 1));
       const script = scripts[agentIdx];
-      const scriptWin = script.path.replace(/\//g, "\\");
       const newId = (
-        await runCommand("wezterm", ["cli", "split-pane", "--pane-id", currentPane, "--bottom", "--percent", String(percent), "--cwd", winWorkDir, "--", "powershell.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptWin])
+        await runCommand("wezterm", ["cli", "split-pane", "--pane-id", currentPane, "--bottom", "--percent", String(percent), "--cwd", workDir, "--", "bash", script.path])
       ).trim();
       paneIds.push(newId);
       currentPane = newId;
@@ -504,13 +508,11 @@ async function spawnTabLayout(
   workDir: string,
   scripts: { path: string; title: string }[]
 ): Promise<string[]> {
-  const winWorkDir = workDir.replace(/\//g, "\\");
   const paneIds: string[] = [];
 
   for (const script of scripts) {
-    const scriptWin = script.path.replace(/\//g, "\\");
     const id = (
-      await runCommand("wezterm", ["cli", "spawn", "--cwd", winWorkDir, "--", "powershell.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptWin])
+      await runCommand("wezterm", ["cli", "spawn", "--cwd", workDir, "--", "bash", script.path])
     ).trim();
     paneIds.push(id);
     if (id) {
@@ -565,7 +567,6 @@ async function executeDispatch(
 
     // Result file
     const resultFilePath = join(taskDir, `${agentName}.md`);
-    const resultFileWin = resultFilePath.replace(/\//g, "\\");
 
     // Get system prompt body directly from AgentConfig (already parsed by pi-subagents)
     const agentSystemPrompt = agentCfg?.systemPrompt?.trim() || "";
@@ -587,7 +588,6 @@ async function executeDispatch(
     // This is critical: --system-prompt replaces the default prompt so the model
     // doesn't know about Agent, sub-agents, or any dispatch tools.
     // Combined with --no-extensions, the Agent tool won't even exist.
-    const workingDirWin = workingDir.replace(/\//g, "\\");
     const systemPromptContent = [
       "You are an autonomous code investigation agent running in an isolated subprocess.",
       "You work DIRECTLY on files using your tools. You are NOT a chat assistant.",
@@ -599,7 +599,7 @@ async function executeDispatch(
       "is IMPOSSIBLE — those messages will be IGNORED and your work will be LOST.",
       "",
       "The project you must investigate is ALREADY on disk at:",
-      `  ${workingDirWin}`,
+      `  ${workingDir}`,
       "",
       "You must use your tools to EXPLORE AND READ that directory yourself. No one will paste code to you.",
       "",
@@ -645,7 +645,7 @@ async function executeDispatch(
       "Even if you hit a dead end, save what you found.",
       "",
       "When you finish, you MUST save your complete report using the `write` tool to:",
-      `  ${resultFileWin}`,
+      `  ${resultFilePath}`,
       "",
       "Format as comprehensive markdown with:",
       "- Title",
@@ -658,24 +658,21 @@ async function executeDispatch(
       "YOUR WORK IS LOST if you don't save. Save even if your findings are incomplete.",
     ].join("\n");
 
-    // Write system prompt to temp file (UTF-8, no BOM — pi reads it as UTF-8)
+    // Write system prompt to a temp file (UTF-8; bash/pi read this natively as UTF-8)
     const scriptId = `dispatch_${agentName}_${Date.now()}`;
     const systemPromptPath = join(homedir(), ".pi", "agent", `${scriptId}_system.txt`);
     writeFileSync(systemPromptPath, systemPromptContent, "utf-8");
     tempFiles.add(systemPromptPath);
 
-    // Write the user prompt to a separate UTF-8 file — avoids PowerShell
-    // heredoc encoding issues (PS5 reads .ps1 as CP1252 by default, corrupting
-    // non-ASCII chars like é/ñ/á).
+    // Write the user prompt to a separate UTF-8 file — avoids shell argument-splitting
+    // issues (a multi-line/multi-word prompt passed as a raw CLI argument can get
+    // mangled by quoting or word-splitting depending on the invoking shell).
     const promptPath = join(homedir(), ".pi", "agent", `${scriptId}_prompt.txt`);
     writeFileSync(promptPath, task, "utf-8");
     tempFiles.add(promptPath);
 
-    // Build PowerShell script
-    const scriptPath = join(homedir(), ".pi", "agent", `${scriptId}.ps1`);
-
-    const systemPromptWin = systemPromptPath.replace(/\//g, "\\");
-    const promptWin = promptPath.replace(/\//g, "\\");
+    // Build bash script
+    const scriptPath = join(homedir(), ".pi", "agent", `${scriptId}.sh`);
 
     const tools = new Set(agentSummary?.tools?.length ? agentSummary.tools : ["read", "bash", "grep", "find", "ls"]);
     tools.add("write");
@@ -684,10 +681,10 @@ async function executeDispatch(
     let modelFlag = "";
     if (dispatch.model_override) {
       const modelArg = thinking !== "off" ? `${dispatch.model_override}:${thinking}` : dispatch.model_override;
-      modelFlag = ` --model "${modelArg}"`;
+      modelFlag = ` --model ${shQuote(modelArg)}`;
     } else if (thinking !== "off") {
       // Apply thinking level to default model via env-free flag
-      modelFlag = ` --thinking "${thinking}"`;
+      modelFlag = ` --thinking ${shQuote(thinking)}`;
     }
 
     // Note on --no-extensions / --no-skills / --system-prompt / --tools:
@@ -695,62 +692,37 @@ async function executeDispatch(
     //   (no Agent tool, no skills, custom system prompt, explicit tool list).
     // Note on --model: only passed if explicitly overridden — otherwise pi uses
     //   the user's default model from settings.json.
-    // IMPORTANT: --tools value MUST be quoted. Without quotes, PowerShell
-    // interprets "read,bash,grep,..." as an array literal and passes it
-    // space-separated to pi, producing: --tools "read bash grep ..." which
-    // pi rejects with "Unknown tool ...".
     const toolsArg = [...tools].join(",");
-    const piCmd = `pi --no-extensions --no-skills${modelFlag} --system-prompt '@${systemPromptWin}' --tools "${toolsArg}"`;
+    const piCmd = `pi --no-extensions --no-skills${modelFlag} --system-prompt '@${systemPromptPath}' --tools ${shQuote(toolsArg)}`;
 
-    // Build the script. We use CRLF line endings for maximum PS5 compatibility.
+    // Build the script.
     //
-    // CRITICAL: We do NOT read the prompt into a PowerShell variable and pass
-    // it as an argument. pi uses `[@files...] [messages...]` as its argument
-    // format, and Windows' CommandLineToArgvW splits arguments on whitespace
-    // (including \r\n). A multi-line prompt passed as a variable gets split
-    // into multiple "message" arguments, which pi then processes as sequential
-    // messages in interactive mode — causing the "buffer bug" where the agent
-    // received fragments like "Image", "at", "22.45.26.jpeg" as new messages.
-    //
-    // Instead, we pass the prompt via pi's `@file` syntax: `pi ... @prompt.txt`
-    // tells pi to read the file contents and use them as the initial message.
-    // Newlines inside the file are preserved because they never pass through
-    // the Windows command-line parser.
+    // We pass the prompt via pi's `@file` syntax: `pi ... @prompt.txt` tells pi
+    // to read the file contents and use them as the initial message. This avoids
+    // any shell word-splitting / quoting edge cases that could occur if the raw
+    // (possibly multi-line) prompt text were passed directly as an argument.
     const lines: string[] = [
-      // Force UTF-8 for all I/O in this process — fixes mojibake for non-ASCII
-      // characters when passing to pi CLI.
-      `chcp 65001 > $null`,
-      `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`,
-      `[Console]::InputEncoding = [System.Text.Encoding]::UTF8`,
-      `$OutputEncoding = [System.Text.Encoding]::UTF8`,
+      `#!/usr/bin/env bash`,
+      `set -uo pipefail`,
       ``,
-      `$Host.UI.RawUI.WindowTitle = '${tabTitle.replace(/'/g, "''")}'`,
-      `$ErrorActionPreference = 'Continue'`,
+      // Best-effort terminal title (OSC 0/2 escape sequence)
+      `printf '\\033]0;%s\\007' ${shQuote(tabTitle)}`,
       ``,
-      // Pass the prompt as a file attachment using pi's @file syntax.
-      // pi reads the file directly — no Windows argument splitting.
-      `${piCmd} '@${promptWin}'`,
+      `${piCmd} '@${promptPath}'`,
       ``,
       // Fallback: capture terminal if agent didn't save
-      `if (-not (Test-Path "${resultFileWin}")) {`,
-      `  $paneId = $env:WEZTERM_PANE`,
-      `  if ($paneId) {`,
-      `    $text = wezterm cli get-text --pane-id $paneId 2>$null`,
-      `    if ($text) { $text | Out-File -FilePath "${resultFileWin}" -Encoding utf8 }`,
-      `  }`,
-      `}`,
+      `if [ ! -f ${shQuote(resultFilePath)} ]; then`,
+      `  if [ -n "\${WEZTERM_PANE:-}" ]; then`,
+      `    wezterm cli get-text --pane-id "$WEZTERM_PANE" > ${shQuote(resultFilePath)} 2>/dev/null || true`,
+      `  fi`,
+      `fi`,
       ``,
-      `Remove-Item -Path "${scriptPath.replace(/\//g, "\\")}" -Force -ErrorAction SilentlyContinue`,
-      `Remove-Item -Path "${systemPromptWin}" -Force -ErrorAction SilentlyContinue`,
-      `Remove-Item -Path "${promptWin}" -Force -ErrorAction SilentlyContinue`,
+      `rm -f ${shQuote(scriptPath)} ${shQuote(systemPromptPath)} ${shQuote(promptPath)}`,
       ``,
     ];
-    const script = lines.join("\r\n");
+    const script = lines.join("\n");
 
-    // Write script with UTF-8 BOM so PowerShell 5 detects UTF-8 encoding
-    // (without BOM, PS5 on Windows defaults to CP1252 when reading scripts).
-    const BOM = "\uFEFF";
-    writeFileSync(scriptPath, BOM + script, "utf-8");
+    writeFileSync(scriptPath, script, "utf-8");
     tempFiles.add(scriptPath);
     scripts.push({ path: scriptPath, title: tabTitle });
 
