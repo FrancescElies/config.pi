@@ -4,7 +4,9 @@
   "dependencies": {
     "@ff-labs/pi-fff": "^0.10.1",
     "@ollama/pi-web-search": "^0.0.5",
+    "@zosmaai/pi-llm-wiki": "^0.12.2",
     "pi-autoresearch": "^1.6.2",
+    "pi-free": "^2.8.1",
     "pi-web-access": "^0.15.0"
   }
 }
