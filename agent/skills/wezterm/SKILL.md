@@ -17,60 +17,69 @@ SOCKET="$SOCKET_DIR/claude.sock"                   # keep agent sessions separat
 SESSION="claude-python"                            # slug-like names; avoid spaces
 
 # Start WezTerm server on private socket
-WEZTERM_SOCK="$SOCKET" wezterm start --class claude-agent
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm start --class claude-agent
 
 # Send Python command to active pane
-WEZTERM_SOCK="$SOCKET" wezterm cli send-text --pane-id 0 'python3 -q' Enter
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli send-text --pane-id 0 'python3 -q' Enter
 
-# Capture pane output
-WEZTERM_SOCK="$SOCKET" wezterm cli capture-pane -p 0
+# Capture pane output (this version has no capture-pane; get-text instead)
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli get-text --pane-id 0
 
 # Clean up
-WEZTERM_SOCK="$SOCKET" wezterm cli kill-pane --pane-id 0
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli kill-pane --pane-id 0
 ```
 
 After starting a session ALWAYS tell the user how to monitor the session by giving them a command to copy paste:
 
 ```
 To monitor this session yourself:
-  WEZTERM_SOCK="$SOCKET" wezterm cli attach --pane-id 0
+  WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli attach --pane-id 0
 
 Or to capture the output once:
-  WEZTERM_SOCK="$SOCKET" wezterm cli capture-pane -p 0
+  WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli get-text --pane-id 0
 ```
 
 This must ALWAYS be printed right after a session was started and once again at the end of the tool loop. But the earlier you send it, the happier the user will be.
 
+## Version quirks (verified on wezterm 20240203-110809-5046fc22, macOS)
+
+- `WEZTERM_SOCK` is **ignored** by this version. Use `WEZTERM_UNIX_SOCKET` for every `wezterm cli` call (also set it when starting the server). Without it, the CLI silently connects to the user's running GUI session instead — always verify with `wezterm cli list` before touching panes.
+- No `spawn-tab` subcommand → use `wezterm cli spawn` (outputs the new pane-id on stdout; `--new-window` is a bare flag, takes no value).
+- No `capture-pane` subcommand → use `wezterm cli get-text --pane-id N`.
+- Starting an isolated server: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm start --always-new-process --class claude-agent`. On macOS this daemonizes a `wezterm-mux-server`; it does NOT create the socket at `$SOCKET` — it lands at `~/.local/share/wezterm/sock`. Point subsequent CLI calls at that path (or find it via `ls -lat ~/.local/share/wezterm/`). Wait ~3s after start before first CLI call.
+- `WEZTERM_PANE` env var is set inside spawned panes — panes can self-report their id: `sh -c 'echo "my pane id is $WEZTERM_PANE"; sleep 30'`. Use `sleep N` to keep short-lived command panes alive long enough to read.
+- Tab titles: `wezterm cli set-tab-title --pane-id N "name"` works as documented.
+
 ## Socket convention
 
-- Agents MUST place WezTerm sockets under `CLAUDE_WEZTERM_SOCKET_DIR` (defaults to `${TMPDIR:-/tmp}/claude-wezterm-sockets`) and use `WEZTERM_SOCK="$SOCKET"` so we can enumerate/clean them. Create the dir first: `mkdir -p "$CLAUDE_WEZTERM_SOCKET_DIR"`.
+- Agents MUST place WezTerm sockets under `CLAUDE_WEZTERM_SOCKET_DIR` (defaults to `${TMPDIR:-/tmp}/claude-wezterm-sockets`) and use `WEZTERM_UNIX_SOCKET="$SOCKET"` so we can enumerate/clean them. Create the dir first: `mkdir -p "$CLAUDE_WEZTERM_SOCKET_DIR"`.
 - Default socket path to use unless you must isolate further: `SOCKET="$CLAUDE_WEZTERM_SOCKET_DIR/claude.sock"`.
-- Set `WEZTERM_SOCK` environment variable before all `wezterm cli` commands.
+- Set `WEZTERM_UNIX_SOCKET` environment variable before all `wezterm cli` commands.
 
 ## Tabs, panes, and naming
 
 - Pane IDs are referenced as integers (0, 1, 2, ...) in the pane-id flag.
-- Create new tabs with `WEZTERM_SOCK="$SOCKET" wezterm cli spawn-tab --domain-name local`.
-- Use human-readable tab titles: `WEZTERM_SOCK="$SOCKET" wezterm cli set-tab-title --pane-id 0 "Python REPL"`.
-- List panes: `WEZTERM_SOCK="$SOCKET" wezterm cli list-clients`.
+- Create new tabs (this version has no `spawn-tab`): `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli spawn --domain-name local` — it prints the new pane-id on stdout.
+- Use human-readable tab titles: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli set-tab-title --pane-id 0 "Python REPL"`.
+- List panes: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli list-clients`.
 - Keep names short and descriptive (e.g., `Claude Python`, `Claude GDB`).
 
 ## Finding sessions and panes
 
-- List all active panes/tabs: `WEZTERM_SOCK="$SOCKET" wezterm cli list-clients`.
-- Get metadata and tab information: `WEZTERM_SOCK="$SOCKET" wezterm cli list-clients --format json` for structured output.
+- List all active panes/tabs: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli list-clients`.
+- Get metadata and tab information: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli list-clients --format json` for structured output.
 - Inspect a specific pane: pane IDs start at 0 and increment for each new tab.
 
 ## Sending input safely
 
-- Send text with Enter key: `WEZTERM_SOCK="$SOCKET" wezterm cli send-text --pane-id 0 'command' Enter`.
+- Send text with Enter key: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli send-text --pane-id 0 'command' Enter`.
 - Use the `send-text` command for literal text (no shell expansion within the string itself).
 - Escape special characters in the command string: use ANSI C quoting where needed, e.g., `$'python3 -c "import sys"'`.
-- Send control keys: `WEZTERM_SOCK="$SOCKET" wezterm cli send-text --pane-id 0 C-c` (Ctrl+C), `C-d` (Ctrl+D), `C-z` (Ctrl+Z).
+- Send control keys: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli send-text --pane-id 0 C-c` (Ctrl+C), `C-d` (Ctrl+D), `C-z` (Ctrl+Z).
 
 ## Watching output
 
-- Capture recent output (plaintext): `WEZTERM_SOCK="$SOCKET" wezterm cli capture-pane -p 0`.
+- Capture recent output (plaintext): `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli get-text --pane-id 0`
 - For continuous monitoring, poll with timed intervals instead of blocking waits.
 - You can also temporarily attach to observe (requires tmux-like detach sequence or manual termination): detach workflows work differently in WezTerm.
 - When giving instructions to a user, **explicitly print a copy/paste monitor command** alongside the action; don't assume they remembered the command.
@@ -93,14 +102,14 @@ Some special rules for processes:
 
 ## Interactive tool recipes
 
-- **Python REPL**: `WEZTERM_SOCK="$SOCKET" wezterm cli send-text --pane-id 0 'PYTHONUNBUFFERED=1 python3 -q' Enter`; wait for `^>>>`; send code with `send-text`; interrupt with `C-c`. Always set `PYTHONUNBUFFERED=1`.
-- **gdb/lldb**: `WEZTERM_SOCK="$SOCKET" wezterm cli send-text --pane-id 0 'lldb ./a.out' Enter` (macOS) or `gdb --quiet ./a.out` (Linux); disable paging if available `set pagination off` (gdb); break with `C-c`; issue `bt`, `info locals`, etc.; exit via `quit` then confirm `y`.
+- **Python REPL**: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli send-text --pane-id 0 'PYTHONUNBUFFERED=1 python3 -q' Enter`; wait for `^>>>`; send code with `send-text`; interrupt with `C-c`. Always set `PYTHONUNBUFFERED=1`.
+- **gdb/lldb**: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli send-text --pane-id 0 'lldb ./a.out' Enter` (macOS) or `gdb --quiet ./a.out` (Linux); disable paging if available `set pagination off` (gdb); break with `C-c`; issue `bt`, `info locals`, etc.; exit via `quit` then confirm `y`.
 - **Other TTY apps** (ipdb, psql, mysql, node, bash): same pattern—start the program, poll for its prompt, then send literal text and Enter.
 
 ## Cleanup
 
-- Kill a pane when done: `WEZTERM_SOCK="$SOCKET" wezterm cli kill-pane --pane-id 0`.
-- Kill all panes/close the window: `WEZTERM_SOCK="$SOCKET" wezterm cli kill-client`.
+- Kill a pane when done: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli kill-pane --pane-id 0`.
+- Kill all panes/close the window: `WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli kill-client`.
 - Remove the socket and server: `rm -f "$SOCKET"` after ensuring no processes are using it.
 
 ## Helper: wait-for-text.sh (adapted for WezTerm)
@@ -130,7 +139,7 @@ FIXED=false
 TIMEOUT=15
 INTERVAL=0.5
 LINES=1000
-SOCKET="${WEZTERM_SOCK:-/tmp/wezterm.sock}"
+SOCKET="${WEZTERM_UNIX_SOCKET:-/tmp/wezterm.sock}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -148,7 +157,7 @@ done
 
 START=$(date +%s)
 while true; do
-  OUTPUT=$(WEZTERM_SOCK="$SOCKET" wezterm cli capture-pane -p "$PANE_ID" 2>/dev/null | tail -n "$LINES")
+  OUTPUT=$(WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli get-text --pane-id "$PANE_ID" 2>/dev/null | tail -n "$LINES")
   if [[ "$FIXED" == true ]]; then
     grep -qF "$PATTERN" <<< "$OUTPUT" && exit 0
   else
@@ -165,9 +174,9 @@ done
 
 - **Pane identification**: WezTerm uses simple integer pane IDs (0, 1, 2...) instead of tmux's `session:window.pane` format.
 - **Command interface**: `wezterm cli` replaces `tmux` for most remote control operations.
-- **Socket setup**: `WEZTERM_SOCK` environment variable instead of `-S` flag.
-- **Output capture**: `wezterm cli capture-pane -p PANE_ID` (simpler, no -J flag needed).
-- **Tab management**: Tabs are created with `spawn-tab` and listed with `list-clients`.
+- **Socket setup**: `WEZTERM_UNIX_SOCKET` environment variable instead of `-S` flag. Note: `WEZTERM_SOCK` is NOT honored by wezterm 20240203.
+- **Output capture**: `wezterm cli get-text --pane-id PANE_ID` (this version has no `capture-pane`).
+- **Tab management**: This version has no `spawn-tab` — use `wezterm cli spawn` (prints the new pane-id).
 - **Buffering**: Use `PYTHONUNBUFFERED=1` for interactive Python to ensure output appears immediately.
 - **Performance**: WezTerm's GPU-accelerated rendering is faster for continuous output monitoring.
 
@@ -180,21 +189,21 @@ mkdir -p "$SOCKET_DIR"
 SOCKET="$SOCKET_DIR/claude.sock"
 
 # Start server
-WEZTERM_SOCK="$SOCKET" wezterm start --class claude-agent &
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm start --class claude-agent &
 sleep 1  # wait for server to initialize
 
 # Start Python REPL
-WEZTERM_SOCK="$SOCKET" wezterm cli send-text --pane-id 0 $'PYTHONUNBUFFERED=1 python3 -q\n'
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli send-text --pane-id 0 $'PYTHONUNBUFFERED=1 python3 -q\n'
 
 # Wait for prompt
 ./scripts/wait-for-text.sh -p 0 -P '^>>>' -T 10
 
 # Send command
-WEZTERM_SOCK="$SOCKET" wezterm cli send-text --pane-id 0 $'print("Hello")\n'
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli send-text --pane-id 0 $'print("Hello")\n'
 
 # Capture output
-WEZTERM_SOCK="$SOCKET" wezterm cli capture-pane -p 0
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli get-text --pane-id 0
 
 # Cleanup
-WEZTERM_SOCK="$SOCKET" wezterm cli kill-pane --pane-id 0
+WEZTERM_UNIX_SOCKET="$SOCKET" wezterm cli kill-pane --pane-id 0
 ```
