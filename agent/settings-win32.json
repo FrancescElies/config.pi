@@ -10,12 +10,12 @@
   ],
   "theme": "dark",
   "extensions": [
-    "-extensions/azure-devops-mcp/index.ts"
+    "-extensions/azure-devops-mcp/index.ts",
+    "-extensions/wezterm-subagents/index.ts"
   ],
   "skills": [
     "-skills/graphify/SKILL.md",
-    "-skills/zellij/SKILL.md",
-    "+skills\\graphify\\SKILL.md"
+    "-skills/zellij/SKILL.md"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
