@@ -1,11 +1,12 @@
 {
-  "lastChangelogVersion": "0.84.3",
+  "lastChangelogVersion": "0.87.1",
   "packages": [
     "git:github.com/DietrichGebert/ponytail@v4.8.4",
     "git:github.com/chandra447/pi-hermes-memory@v0.9.1",
     "npm:@ff-labs/pi-fff@0.10.1",
     "npm:pi-web-access@0.15.0",
-    "npm:pi-autoresearch"
+    "npm:pi-autoresearch",
+    "npm:@zosmaai/pi-llm-wiki"
   ],
   "theme": "dark",
   "extensions": [
