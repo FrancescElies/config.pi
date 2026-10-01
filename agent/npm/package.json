@@ -2,11 +2,11 @@
   "name": "pi-extensions",
   "private": true,
   "dependencies": {
-    "@ff-labs/pi-fff": "^0.10.1",
+    "@ff-labs/pi-fff": "^0.11.0",
     "@ollama/pi-web-search": "^0.0.5",
     "@zosmaai/pi-llm-wiki": "^0.12.4",
     "pi-autoresearch": "^1.6.2",
     "pi-free": "^2.8.1",
-    "pi-web-access": "^0.15.0"
+    "pi-web-access": "^0.35.0"
   }
 }
