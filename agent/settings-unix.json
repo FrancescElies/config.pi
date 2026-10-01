@@ -6,8 +6,7 @@
     "npm:@ff-labs/pi-fff",
     "npm:pi-web-access",
     "npm:pi-autoresearch",
-    "npm:pi-free",
-    "npm:@zosmaai/pi-llm-wiki"
+    "npm:pi-free"
   ],
   "theme": "dark",
   "extensions": [
