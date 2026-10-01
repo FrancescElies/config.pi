@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "0.99.2",
   "packages": [
     "git:github.com/DietrichGebert/ponytail@v4.8.4",
     "git:github.com/chandra447/pi-hermes-memory@v0.9.1",
@@ -20,5 +20,5 @@
   "hideThinkingBlock": false,
   "defaultThinkingLevel": "low",
   "defaultProvider": "github-copilot",
-  "defaultModel": "claude-opus-4.8"
+  "defaultModel": "claude-opus-5.5"
 }
