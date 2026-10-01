@@ -5,8 +5,7 @@
     "git:github.com/chandra447/pi-hermes-memory@v0.9.1",
     "npm:@ff-labs/pi-fff@0.10.1",
     "npm:pi-web-access@0.15.0",
-    "npm:pi-autoresearch",
-    "npm:@zosmaai/pi-llm-wiki"
+    "npm:pi-autoresearch"
   ],
   "theme": "dark",
   "extensions": [
