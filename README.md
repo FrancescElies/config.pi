@@ -51,6 +51,12 @@ Native micro-UI for scripts and agents. macOS, Linux, and Windows.
     npm install glimpseui
     pi install npm:glimpseui
 
+### research 
+    https://www.feynman.is/
+
+### Ralph Wiggum Loop
+    pi install npm:@tmustier/pi-ralph-wiggum
+
 ## agent browser
 
     "npm:pi-agent-browser-native@0.2.72"
