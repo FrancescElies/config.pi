@@ -40,12 +40,16 @@ bring your own API keys.
     uv tool install graphifyy
     graphify install --platform pi
 
-## subagents
-    pi install git:github.com/HazAT/pi-interactive-subagents
+### pi-slopchop
+Terminal-native review and annotation surface for Pi
 
-## rtk
-    cargo install --git https://github.com/rtk-ai/rtk
-    rtk init -g --agent pi
+    pi install npm:pi-slopchop
+
+### glimpse
+Native micro-UI for scripts and agents. macOS, Linux, and Windows.
+
+    npm install glimpseui
+    pi install npm:glimpseui
 
 ## agent browser
 
