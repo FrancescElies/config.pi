@@ -17,6 +17,7 @@ import {
 	Container,
 	Input,
 	Markdown,
+	matchesKey,
 	truncateToWidth,
 	visibleWidth,
 	type Focusable,
@@ -27,6 +28,9 @@ import {
 
 const BTW_ENTRY_TYPE = "btw-thread-entry";
 const BTW_RESET_TYPE = "btw-thread-reset";
+
+const MOUSE_ON = "\x1b[?1000h\x1b[?1006h";
+const MOUSE_OFF = "\x1b[?1000l\x1b[?1006l";
 
 const BTW_SYSTEM_PROMPT = [
 	"You are BTW, a side-channel assistant embedded in the user's coding agent.",
@@ -203,6 +207,8 @@ class BtwOverlay extends Container implements Focusable {
 	private readonly onSubmitCallback: (value: string) => void;
 	private readonly onDismissCallback: () => void;
 	private _focused = false;
+	private scrollOffset = 0; // lines scrolled up from bottom
+	private lastPage = 10;
 
 	get focused(): boolean {
 		return this._focused;
@@ -245,6 +251,27 @@ class BtwOverlay extends Container implements Focusable {
 			this.onDismissCallback();
 			return;
 		}
+		// SGR mouse: \x1b[<btn;x;yM — 64 wheel up, 65 wheel down; swallow other mouse events
+		if (data.startsWith("\x1b[<")) {
+			for (const m of data.matchAll(/\x1b\[<(\d+);\d+;\d+[Mm]/g)) {
+				const btn = Number(m[1]) & ~0x1c; // strip shift/meta/ctrl bits
+				if (btn === 64) this.scrollOffset += 3;
+				else if (btn === 65) this.scrollOffset = Math.max(0, this.scrollOffset - 3);
+			}
+			this.tui.requestRender();
+			return;
+		}
+		const step = matchesKey(data, "pageUp") || matchesKey(data, "pageDown") ? this.lastPage : 1;
+		if (matchesKey(data, "pageUp") || matchesKey(data, "shift+up")) {
+			this.scrollOffset += step;
+			this.tui.requestRender();
+			return;
+		}
+		if (matchesKey(data, "pageDown") || matchesKey(data, "shift+down")) {
+			this.scrollOffset = Math.max(0, this.scrollOffset - step);
+			this.tui.requestRender();
+			return;
+		}
 
 		this.input.handleInput(data);
 	}
@@ -279,9 +306,23 @@ class BtwOverlay extends Container implements Focusable {
 		const transcriptHeight = Math.max(6, dialogHeight - chromeHeight);
 
 		// Markdown renders to innerWidth already — no manual wrapping needed
-		const transcript = this.getTranscript(innerWidth, this.theme);
-		const visibleTranscript = transcript.slice(-transcriptHeight);
+		const transcript = this.getTranscript(innerWidth - 1, this.theme);
+		this.lastPage = Math.max(1, transcriptHeight - 1);
+		const maxOffset = Math.max(0, transcript.length - transcriptHeight);
+		this.scrollOffset = Math.min(this.scrollOffset, maxOffset);
+		const end = transcript.length - this.scrollOffset;
+		const visibleTranscript = transcript.slice(Math.max(0, end - transcriptHeight), end);
 		const transcriptPadding = Math.max(0, transcriptHeight - visibleTranscript.length);
+		// scrollbar thumb
+		const total = Math.max(transcript.length, 1);
+		const thumbSize = Math.max(1, Math.round((transcriptHeight * transcriptHeight) / total));
+		const thumbStart = maxOffset === 0 ? 0 : Math.round(((maxOffset - this.scrollOffset) / maxOffset) * (transcriptHeight - thumbSize));
+		const bar = (i: number) =>
+			maxOffset === 0 ? " " : i >= thumbStart && i < thumbStart + thumbSize ? this.theme.fg("accent", "█") : this.theme.fg("borderMuted", "│");
+		const row = (content: string, i: number) => {
+			const t = truncateToWidth(content, innerWidth - 1, "");
+			return this.frameLine(t + " ".repeat(Math.max(0, innerWidth - 1 - visibleWidth(t))) + bar(i), innerWidth);
+		};
 
 		const status = this.getStatus();
 
@@ -297,19 +338,16 @@ class BtwOverlay extends Container implements Focusable {
 			this.theme.fg("borderMuted", `├${"─".repeat(innerWidth)}┤`),
 		];
 
-		for (const line of visibleTranscript) {
-			lines.push(this.frameLine(line, innerWidth));
-		}
-		for (let i = 0; i < transcriptPadding; i++) {
-			lines.push(this.frameLine("", innerWidth));
-		}
+		let r = 0;
+		for (const line of visibleTranscript) lines.push(row(line, r++));
+		for (let i = 0; i < transcriptPadding; i++) lines.push(row("", r++));
 
 		lines.push(this.theme.fg("borderMuted", `├${"─".repeat(innerWidth)}┤`));
 		lines.push(this.frameLine(this.theme.fg("warning", status), innerWidth));
 		lines.push(
 			`${this.theme.fg("borderMuted", "│")}${inputLine}${this.theme.fg("borderMuted", "│")}`,
 		);
-		lines.push(this.frameLine(this.theme.fg("dim", "Enter submit · Esc close"), innerWidth));
+		lines.push(this.frameLine(this.theme.fg("dim", "Enter submit · PgUp/PgDn or Shift+↑/↓ scroll · Esc close"), innerWidth));
 		lines.push(this.borderLine(innerWidth, "bottom"));
 
 		return lines;
@@ -661,6 +699,7 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 			runtime.closed = true;
+			process.stdout.write(MOUSE_OFF);
 			runtime.handle?.hide();
 			if (overlayRuntime === runtime) {
 				overlayRuntime = null;
@@ -674,6 +713,7 @@ export default function (pi: ExtensionAPI) {
 			.custom<void>(
 				async (tui, theme, keybindings, done) => {
 					runtime.finish = () => done();
+					process.stdout.write(MOUSE_ON);
 
 					const overlay = new BtwOverlay(
 						tui,
@@ -955,5 +995,6 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_shutdown", async () => {
 		await disposeSideSession();
 		dismissOverlay();
+		process.stdout.write(MOUSE_OFF);
 	});
 }
