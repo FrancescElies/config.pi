@@ -7,6 +7,15 @@
         "semble[mcp]",
         "semble"
       ]
+    },
+    "ado": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure-devops/mcp",
+        "mbbm-ast"
+      ],
+      "enabled": false
     }
   }
 }
