@@ -1,1 +1,5 @@
-{ "searxngBaseUrl": "http://localhost:8888" }
+{
+  "provider": "searxng",
+  "searxngBaseUrl": "http://[::1]:8888",
+  "ssrf": { "allowRanges": ["127.0.0.0/8", "::1/128"] }
+}
