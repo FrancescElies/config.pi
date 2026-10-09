@@ -49,6 +49,7 @@ agent/projects-memory/
 agent/sessions
 agent/settings.json
 agent/trust.json
+agent/web-search-cache/
 context-mode/
 free-telemetry.json
 free.json
