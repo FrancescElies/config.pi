@@ -7,7 +7,6 @@
     "npm:pi-web-access",
     "npm:pi-autoresearch"
   ],
-  "theme": "dark",
   "extensions": [
     "-extensions/azure-devops-mcp/index.ts",
     "-extensions/wezterm-subagents/index.ts"
@@ -18,8 +17,17 @@
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
-  "defaultThinkingLevel": "low",
+  "defaultThinkingLevel": "medium",
   "defaultProvider": "github-copilot",
-  "defaultModel": "claude-opus-5.5",
-  "tuiMode": "regular"
+  "defaultModel": "claude-sonnet-5.5",
+  "modelThinkingLevels": {
+    "github-copilot/gpt-6-luna": "low",
+    "github-copilot/claude-sonnet-5.5": "medium",
+    "github-copilot/claude-opus-5.5": "high"
+  },
+  "enabledModels": [
+    "github-copilot/gpt-6-luna",
+    "github-copilot/claude-sonnet-5.5",
+    "github-copilot/claude-opus-5.5"
+  ]
 }
