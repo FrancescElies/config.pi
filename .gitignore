@@ -48,6 +48,7 @@ agent/pi-hermes-memory/
 agent/projects-memory/
 agent/sessions
 agent/settings.json
+agent/tmp
 agent/trust.json
 agent/web-search-cache/
 context-mode/
