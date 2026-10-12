@@ -1,3 +1,4 @@
 {
-  "app.editor.external": ["ctrl+g"]
+  "app.editor.external": ["ctrl+g"],
+  "app.message.followUp": ["alt+enter"]
 }
