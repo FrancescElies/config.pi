@@ -13,10 +13,13 @@ const git = (cwd: string, args: string[], signal?: AbortSignal) =>
 const gitTool = defineTool({
 	name: "git",
 	label: "Git",
-	description: "Run git log, commit or push in the current repo. Commit only commits what is already staged unless all=true (git add -A first). Push never forces.",
+	description: "Run git log, diff, commit or push in the current repo. Commit only commits what is already staged unless all=true (git add -A first). Push never forces.",
 	parameters: Type.Object({
-		action: Type.Union([Type.Literal("log"), Type.Literal("commit"), Type.Literal("push")]),
+		action: Type.Union([Type.Literal("log"), Type.Literal("diff"), Type.Literal("commit"), Type.Literal("push")]),
 		count: Type.Optional(Type.Number({ description: "log: number of commits (default 10)" })),
+		staged: Type.Optional(Type.Boolean({ description: "diff: show staged changes (--cached)" })),
+		ref: Type.Optional(Type.String({ description: "diff: commit/range, e.g. HEAD~1 or main..HEAD (default: working tree)" })),
+		paths: Type.Optional(Type.Array(Type.String(), { description: "diff: limit to these paths" })),
 		message: Type.Optional(Type.String({ description: "commit: message (required)" })),
 		all: Type.Optional(Type.Boolean({ description: "commit: stage everything first (default false)" })),
 	}),
@@ -26,6 +29,10 @@ const gitTool = defineTool({
 		if (p.action === "log") {
 			const n = Math.max(1, Math.min(200, Math.floor(p.count ?? 10)));
 			text = await git(ctx.cwd, ["log", "--oneline", "--decorate", `-n${n}`], signal);
+		} else if (p.action === "diff") {
+			if (p.ref?.startsWith("-")) throw new Error("invalid ref");
+			const args = ["diff", "--no-ext-diff", ...(p.staged ? ["--cached"] : []), ...(p.ref ? [p.ref] : []), "--", ...(p.paths ?? [])];
+			text = await git(ctx.cwd, args, signal);
 		} else if (p.action === "commit") {
 			if (!p.message?.trim()) throw new Error("commit requires a message");
 			if (p.all) await git(ctx.cwd, ["add", "-A"], signal);
