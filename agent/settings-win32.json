@@ -8,8 +8,7 @@
     "npm:pi-autoresearch"
   ],
   "extensions": [
-    "-extensions/azure-devops-mcp/index.ts",
-    "-extensions/wezterm-subagents/index.ts"
+    "-extensions/azure-devops-mcp/index.ts"
   ],
   "skills": [
     "-skills/graphify/SKILL.md",
