@@ -5,7 +5,9 @@
     "git:github.com/chandra447/pi-hermes-memory",
     "npm:@ff-labs/pi-fff",
     "npm:pi-web-access",
-    "npm:pi-autoresearch"
+    "npm:pi-autoresearch",
+    "git:github.com/earendil-works/pi-review",
+    "git:github.com/earendil-works/pi-review-loop"
   ],
   "extensions": [
     "-extensions/azure-devops-mcp/index.ts"
