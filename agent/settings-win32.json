@@ -6,7 +6,6 @@
     "npm:@ff-labs/pi-fff",
     "npm:pi-web-access",
     "npm:pi-autoresearch",
-    "git:github.com/earendil-works/pi-review",
     "git:github.com/earendil-works/pi-review-loop"
   ],
   "extensions": [
@@ -17,6 +16,7 @@
     "-skills/zellij/SKILL.md"
   ],
   "enableInstallTelemetry": false,
+  "quietStartup": true,
   "hideThinkingBlock": false,
   "defaultThinkingLevel": "medium",
   "defaultProvider": "github-copilot",
