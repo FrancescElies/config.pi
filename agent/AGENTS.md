@@ -1,0 +1,1 @@
+- Never use grep/find/ls via bash to search. Use rg for content and fd for paths.
