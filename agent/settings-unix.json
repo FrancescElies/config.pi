@@ -13,8 +13,7 @@
     "-extensions/azure-devops-mcp/index.ts"
   ],
   "skills": [
-    "-skills/graphify/SKILL.md",
-    "-skills/zellij/SKILL.md"
+    "-skills/graphify/SKILL.md"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
