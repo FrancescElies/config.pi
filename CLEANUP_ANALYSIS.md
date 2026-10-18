@@ -128,3 +128,34 @@ git rm --cached free.log free-telemetry.json opencode-catalog-cache.json provide
 # 7. Edit settings-unix.json: remove "-skills/zellij/SKILL.md" from skills array
 # (manual edit or use jq)
 ```
+
+---
+
+## ✅ Progress Tracker
+
+| Phase | Task | Status | Notes |
+|-------|------|--------|-------|
+| 1 | Delete `agent/skills/zellij/` | ☐ | |
+| 1 | Remove zellij from `settings-unix.json` | ☐ | |
+| 1 | Delete `agent/extensions/azure-devops-mcp/` | ☐ | |
+| 1 | Delete root `web-search.json` | ☐ | |
+| 1 | `git rm -r --cached agents context-mode durable` | ☐ | |
+| 1 | Add dirs to `.gitignore` | ☐ | |
+| 1 | `git rm --cached` cache files | ☐ | |
+| 2 | Choose WezTerm: extension vs skill | ☐ | |
+| 2 | Remove unused WezTerm integration | ☐ | |
+| 3 | Test `goal.ts` vs built-ins | ☐ | |
+| 3 | Test `git-tool.ts` vs built-in | ☐ | |
+| 3 | Review `answer.ts` vs `ask-user-question.ts` | ☐ | |
+| 4 | Prune `ghidra` skill | ☐ | |
+| 4 | Prune `graphify` skill | ☐ | |
+| 4 | Prune `karpathy-llm-wiki` skill | ☐ | |
+| 4 | Prune `web-browser` skill | ☐ | |
+| 4 | Prune/keep `librarian` skill | ☐ | |
+| 5 | Clean up `agent/npm/` | ☐ | |
+
+---
+
+**Legend:** ☐ = Not started | ☑ = Done | ⏭ = Skipped
+
+Update the table above as you complete each task.
