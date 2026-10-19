@@ -23,5 +23,8 @@
     "github-copilot/gpt-6-luna",
     "github-copilot/claude-sonnet-5.5",
     "github-copilot/claude-opus-5.5"
+  ],
+  "skills": [
+    "!skills/feynman/**"
   ]
 }
