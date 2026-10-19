@@ -1,7 +1,11 @@
-// WezTerm integration for pi: tab title status, user var for Lua, /wez-split command.
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent"; // newer builds: "@earendil-works/pi-coding-agent"
+// Based on https://github.com/mitsuhiko/agent-stuff/blob/main/extensions/split-fork.ts
+//
+// WezTerm integration for pi: tab title status, user var for Lua, /wez-split, /wez-fork, /wez-read.
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execFile } from "node:child_process";
-import { basename } from "node:path";
+import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import { basename, dirname, join } from "node:path";
 
 const inWez = !!process.env.WEZTERM_PANE;
 
@@ -55,37 +59,89 @@ export default function (pi: ExtensionAPI) {
     setTitle(project);
   });
 
-  // Last pane opened by /wez-split (read back with /wez-read)
+  // Last pane opened by /wez-split or /wez-fork (read back with /wez-read)
   let lastPane: string | undefined;
+
+  // Right split in ctx.cwd running `cmd` in nu; onErr adds context to failures
+  const split = (
+    ctx: any,
+    cmd: string,
+    percent: number,
+    onOk: (pane: string) => string,
+    onErr = "",
+  ) =>
+    execFile(
+      "wezterm",
+      // nu resolves shims (pi.cmd); -e runs the command then keeps the shell open
+      [
+        "cli",
+        "split-pane",
+        "--percent",
+        String(percent),
+        "--cwd",
+        ctx.cwd,
+        "--",
+        "nu",
+        "-e",
+        cmd,
+      ],
+      (err, stdout) => {
+        if (err)
+          return ctx.ui.notify(`wezterm: ${err.message}${onErr}`, "error");
+        const pane = (lastPane = stdout.trim()); // split-pane prints the new pane id
+        ctx.ui.notify(onOk(pane), "info");
+      },
+    );
 
   // /wez-split [command...]  -> right split in same cwd (default: pi)
   pi.registerCommand("wez-split", {
     description: "Open a WezTerm split pane (default: pi)",
     handler: async (args: string, ctx: any) => {
-      const cmd = args?.trim() ? args.trim().split(/\s+/) : ["pi"];
-      execFile(
-        "wezterm",
-        [
-          "cli",
-          "split-pane",
-          "--percent",
-          "40",
-          "--cwd",
-          process.cwd(),
-          "--",
-          // nu resolves shims (pi.cmd); -e runs the command then keeps the shell open
-          "nu",
-          "-e",
-          cmd.join(" "),
-        ],
-        (err, stdout) => {
-          if (err) return ctx.ui.notify(`wezterm: ${err.message}`, "error");
-          lastPane = stdout.trim(); // split-pane prints the new pane id
-          ctx.ui.notify(
-            `Split opened (pane ${lastPane}). Use /wez-read`,
-            "info",
-          );
+      const cmd = args?.trim() ? args.trim().split(/\s+/).join(" ") : "pi";
+      split(ctx, cmd, 40, (p) => `Split opened (pane ${p}). Use /wez-read`);
+    },
+  });
+
+  // /wez-fork [prompt]  -> copy this session's current branch to a new session file
+  // and open it in a right split (adapted from mitsuhiko/agent-stuff split-fork.ts)
+  pi.registerCommand("wez-fork", {
+    description:
+      "Fork this session into a WezTerm split. Usage: /wez-fork [prompt]",
+    handler: async (args: string, ctx: any) => {
+      const sessionFile = ctx.sessionManager.getSessionFile();
+      if (!sessionFile)
+        return ctx.ui.notify("No persisted session to fork", "warning");
+      const header = ctx.sessionManager.getHeader();
+      const now = new Date().toISOString();
+      const id = randomUUID();
+      const file = join(
+        dirname(sessionFile),
+        `${now.replace(/[:.]/g, "-")}_${id}.jsonl`,
+      );
+      const lines = [
+        {
+          type: "session",
+          version: header?.version ?? 3,
+          id,
+          timestamp: now,
+          cwd: header?.cwd ?? ctx.cwd,
+          parentSession: sessionFile,
         },
+        ...ctx.sessionManager.getBranch(),
+      ].map((e) => JSON.stringify(e));
+      await fs.writeFile(file, `${lines.join("\n")}\n`, "utf8");
+
+      // JSON strings are valid nu double-quoted strings.
+      // shortcut: control chars become JSON \uXXXX escapes nu may reject; write a nu escaper if prompts need them
+      const q = (v: string) => JSON.stringify(v);
+      const prompt = (args ?? "").trim();
+      const cmd = `pi --session ${q(file)}${prompt ? ` -- ${q(prompt)}` : ""}`;
+      split(
+        ctx,
+        cmd,
+        50,
+        (p) => `Forked to ${basename(file)} (pane ${p})`,
+        ` (fork saved: ${file})`,
       );
     },
   });
