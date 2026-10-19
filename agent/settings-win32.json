@@ -8,13 +8,6 @@
     "npm:pi-autoresearch",
     "git:github.com/earendil-works/pi-review-loop"
   ],
-  "extensions": [
-    "-extensions/azure-devops-mcp/index.ts"
-  ],
-  "skills": [
-    "-skills/graphify/SKILL.md",
-    "-skills/zellij/SKILL.md"
-  ],
   "enableInstallTelemetry": false,
   "quietStartup": true,
   "hideThinkingBlock": false,

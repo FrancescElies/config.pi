@@ -9,12 +9,6 @@
     "npm:pi-free"
   ],
   "theme": "dark",
-  "extensions": [
-    "-extensions/azure-devops-mcp/index.ts"
-  ],
-  "skills": [
-    "-skills/graphify/SKILL.md"
-  ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
   "defaultThinkingLevel": "medium"
