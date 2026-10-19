@@ -66,3 +66,12 @@ Native micro-UI for scripts and agents. macOS, Linux, and Windows.
 ## usage: Analyze coding (agent) CLI token usage and costs from local data.
 
     npm install -g ccusage
+
+# Things to try
+
+- wiff
+- lean ctx
+- context mode
+- fovenance
+- caveman
+- https://github.com/mitsuhiko/agent-stuff/blob/main/extensions/split-fork.ts
