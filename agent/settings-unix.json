@@ -1,15 +1,20 @@
 {
-  "lastChangelogVersion": "1.4.0",
-  "packages": [
-    "git:github.com/DietrichGebert/ponytail",
-    "git:github.com/chandra447/pi-hermes-memory",
-    "npm:@ff-labs/pi-fff",
-    "npm:pi-web-access",
-    "npm:pi-autoresearch",
-    "npm:pi-free"
-  ],
-  "theme": "dark",
+  "defaultThinkingLevel": "medium",
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
-  "defaultThinkingLevel": "medium"
+  "lastChangelogVersion": "1.4.0",
+  "packages": [
+    "git:github.com/DietrichGebert/ponytail@09c434ab73ca43761c5d8b0c5d341926c2fba710",
+    "git:github.com/chandra447/pi-hermes-memory@36be1072f386b5bd059d4820ac0c193e6a88d39d",
+    "git:github.com/earendil-works/pi-review-loop@3822e126b8b9ec05d7796b7897512c773ba9a166",
+    "npm:@ff-labs/pi-fff@0.11.0",
+    "npm:pi-autoresearch@1.9.0",
+    "npm:pi-free",
+    "npm:pi-web-access@0.43.0"
+  ],
+  "quietStartup": true,
+  "skills": [
+    "!skills/feynman/**"
+  ],
+  "theme": "dark"
 }
