@@ -2,11 +2,18 @@
   "name": "pi-extensions",
   "private": true,
   "dependencies": {
+    "@dietrichgebert/ponytail": "^5.3.2",
     "@ff-labs/pi-fff": "^0.11.0",
     "@ollama/pi-web-search": "^0.0.5",
     "@zosmaai/pi-llm-wiki": "^0.12.4",
+    "context-mode": "^1.0.169",
     "pi-autoresearch": "^1.9.0",
+    "pi-btw": "^0.8.0",
     "pi-free": "^2.8.5",
+    "pi-hermes-memory": "^0.9.11",
+    "pi-mcp-adapter": "^6.0.0",
+    "pi-subagents": "^0.81.0",
+    "pi-token-burden": "^0.6.5",
     "pi-vim": "^0.14.2",
     "pi-web-access": "^0.43.0"
   }
