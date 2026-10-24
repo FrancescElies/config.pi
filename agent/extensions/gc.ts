@@ -5,10 +5,31 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("gc", {
 		description: "Draft a commit message from the staged diff and commit",
 		handler: async (_args, ctx) => {
-			const { stdout, code } = await pi.exec("git", ["diff", "--staged"]);
-			if (code !== 0 || !stdout.trim()) {
-				ctx.ui.notify("Nothing staged", "warning");
+			let { stdout, code } = await pi.exec("git", ["diff", "--staged"]);
+			if (code !== 0) {
+				ctx.ui.notify("git diff failed", "error");
 				return;
+			}
+			if (!stdout.trim()) {
+				const answer = await ctx.ui.input(
+					"Nothing staged. What should be staged?",
+					"files/paths/glob, or 'all' (default: all)",
+				);
+				if (answer === undefined) return;
+				const spec = (answer ?? "").trim() || "all";
+				const addArgs = spec.toLowerCase() === "all" ? ["add", "-A"] : ["add", ...spec.split(/\s+/).filter(Boolean)];
+				const add = await pi.exec("git", addArgs);
+				if (add.code !== 0) {
+					ctx.ui.notify(add.stderr || "git add failed", "error");
+					return;
+				}
+				const r2 = await pi.exec("git", ["diff", "--staged"]);
+				stdout = r2.stdout;
+				code = r2.code;
+				if (code !== 0 || !stdout.trim()) {
+					ctx.ui.notify("Nothing staged", "warning");
+					return;
+				}
 			}
 			// The commit hook demands a ticket: reuse the #number of the previous commit if it has one.
 			const last = await pi.exec("git", ["log", "-1", "--format=%B"]);
