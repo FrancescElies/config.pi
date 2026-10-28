@@ -8,29 +8,35 @@ secrets.yml
 secrets.json
 config.local.*
 
-# Agent runtime state
+# Build artifacts & dependency directories
+node_modules/
+npm-debug.log*
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+
+# Runtime state & caches
 .pi/
 *.session
 *.cache
 *.log
 logs/
+context-mode/
+free-telemetry.json
+free.json
+free.log
+provider-cache.json
 
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
-
-# Node
-node_modules/
-npm-debug.log*
-
-# OS/editor cruft
+# Editor / OS cruft
 .DS_Store
 .vscode/
 .idea/
 *.swp
 
+# Project-specific ignored files
 agent/**/*.db*
 agent/*.sqlite
 agent/.pi-hermes-locks.*
@@ -50,8 +56,3 @@ agent/settings.json
 agent/tmp
 agent/trust.json
 agent/web-search-cache/
-context-mode/
-free-telemetry.json
-free.json
-free.log
-provider-cache.json
