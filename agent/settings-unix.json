@@ -1,4 +1,6 @@
 {
+  "defaultProvider": "kilo",
+  "defaultModelId": "kilo-auto/free",
   "defaultThinkingLevel": "medium",
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
