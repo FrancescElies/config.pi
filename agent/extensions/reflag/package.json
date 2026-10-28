@@ -1,0 +1,7 @@
+{
+  "name": "reflag",
+  "private": true,
+  "type": "module",
+  "pi": { "extensions": ["./src/index.ts"] },
+  "dependencies": { "web-tree-sitter": "^0.26.9" }
+}
