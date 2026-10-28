@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.3.0",
+  "lastChangelogVersion": "1.4.0",
   "packages": [
     "git:github.com/DietrichGebert/ponytail@09c434ab73ca43761c5d8b0c5d341926c2fba710",
     "git:github.com/chandra447/pi-hermes-memory@36be1072f386b5bd059d4820ac0c193e6a88d39d",
