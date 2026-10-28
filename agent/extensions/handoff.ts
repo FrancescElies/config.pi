@@ -137,7 +137,7 @@ export default function (pi: ExtensionAPI) {
 					};
 
 					const response = await complete(
-						ctx.model!,
+						auth.baseUrl ? { ...ctx.model!, baseUrl: auth.baseUrl } : ctx.model!,
 						{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
 						{
 							apiKey: auth.apiKey,

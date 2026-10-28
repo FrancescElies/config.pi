@@ -531,9 +531,9 @@ export default function (pi: ExtensionAPI) {
 					};
 
 					const response = await complete(
-						extractionModel,
+						auth.baseUrl ? { ...extractionModel, baseUrl: auth.baseUrl } : extractionModel,
 						{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-						{ apiKey: auth.apiKey, headers: auth.headers, signal: loader.signal },
+						{ apiKey: auth.apiKey, headers: auth.headers, env: auth.env, signal: loader.signal },
 					);
 
 					if (response.stopReason === "aborted") {

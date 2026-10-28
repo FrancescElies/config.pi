@@ -34,7 +34,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import crypto from "node:crypto";
 import {
 	Container,
@@ -186,7 +186,36 @@ function clearAssignmentIfClosed(todo: TodoFrontMatter): void {
 	}
 }
 
-function sortTodos(todos: TodoFrontMatter[]): TodoFrontMatter[] {
+// Frecency: last 10 access times per todo in <todosDir>/.frecency.json; each counts 1/(1+age in days), so the todo opened last ranks first.
+function frecencyScores(todosDir: string): Record<string, number> {
+	try {
+		const data = JSON.parse(readFileSync(path.join(todosDir, ".frecency.json"), "utf8")) as Record<string, number[]>;
+		const now = Date.now();
+		return Object.fromEntries(
+			Object.entries(data).map(([id, ts]) => [id, ts.reduce((sum, t) => sum + 1 / (1 + (now - t) / 86_400_000), 0)]),
+		);
+	} catch {
+		return {};
+	}
+}
+
+function touchFrecency(todosDir: string, id: string) {
+	const file = path.join(todosDir, ".frecency.json");
+	let data: Record<string, number[]> = {};
+	try {
+		data = JSON.parse(readFileSync(file, "utf8"));
+	} catch {
+		// first access
+	}
+	data[id] = [...(data[id] ?? []), Date.now()].slice(-10);
+	try {
+		writeFileSync(file, JSON.stringify(data));
+	} catch {
+		// ranking is best effort
+	}
+}
+
+function sortTodos(todos: TodoFrontMatter[], scores: Record<string, number> = {}): TodoFrontMatter[] {
 	return [...todos].sort((a, b) => {
 		const aClosed = isTodoClosed(a.status);
 		const bClosed = isTodoClosed(b.status);
@@ -194,6 +223,8 @@ function sortTodos(todos: TodoFrontMatter[]): TodoFrontMatter[] {
 		const aAssigned = !aClosed && Boolean(a.assigned_to_session);
 		const bAssigned = !bClosed && Boolean(b.assigned_to_session);
 		if (aAssigned !== bAssigned) return aAssigned ? -1 : 1;
+		const byScore = (scores[b.id] ?? 0) - (scores[a.id] ?? 0);
+		if (byScore) return byScore;
 		return (a.created_at || "").localeCompare(b.created_at || "");
 	});
 }
@@ -1059,7 +1090,7 @@ async function listTodos(todosDir: string): Promise<TodoFrontMatter[]> {
 		}
 	}
 
-	return sortTodos(todos);
+	return sortTodos(todos, frecencyScores(todosDir));
 }
 
 function listTodosSync(todosDir: string): TodoFrontMatter[] {
@@ -1092,7 +1123,7 @@ function listTodosSync(todosDir: string): TodoFrontMatter[] {
 		}
 	}
 
-	return sortTodos(todos);
+	return sortTodos(todos, frecencyScores(todosDir));
 }
 
 function getTodoTitle(todo: TodoFrontMatter): string {
@@ -2006,6 +2037,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 				};
 
 				const showActionMenu = async (todo: TodoFrontMatter | TodoRecord) => {
+					touchFrecency(todosDir, todo.id);
 					const record = "body" in todo ? todo : await resolveTodoRecord(todo);
 					if (!record) return;
 					actionMenu = new TodoActionMenuComponent(
