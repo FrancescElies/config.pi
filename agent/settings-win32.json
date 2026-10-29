@@ -3,10 +3,10 @@
   "packages": [
     "git:github.com/DietrichGebert/ponytail@09c434ab73ca43761c5d8b0c5d341926c2fba710",
     "git:github.com/chandra447/pi-hermes-memory@36be1072f386b5bd059d4820ac0c193e6a88d39d",
+    "git:github.com/earendil-works/pi-review-loop@3822e126b8b9ec05d7796b7897512c773ba9a166",
     "npm:@ff-labs/pi-fff@0.11.0",
-    "npm:pi-web-access@0.43.0",
     "npm:pi-autoresearch@1.9.0",
-    "git:github.com/earendil-works/pi-review-loop@3822e126b8b9ec05d7796b7897512c773ba9a166"
+    "npm:pi-web-access@0.43.0"
   ],
   "enableInstallTelemetry": false,
   "quietStartup": true,
@@ -17,29 +17,16 @@
   "defaultModel": "claude-sonnet-5.5",
   "defaultprovider": "github-copilot",
   "defaultthinkinglevel": "medium",
-  "enableInstallTelemetry": false,
   "enabledModels": [
     "github-copilot/gpt-6-luna",
     "github-copilot/claude-sonnet-5.5",
     "github-copilot/claude-opus-5.5"
   ],
-  "externalEditor": "nvim --clean",
-  "hideThinkingBlock": false,
-  "lastChangelogVersion": "1.3.0",
   "modelThinkingLevels": {
     "github-copilot/claude-opus-5.5": "high",
     "github-copilot/claude-sonnet-5.5": "medium",
     "github-copilot/gpt-6-luna": "low"
   },
-  "packages": [
-    "git:github.com/DietrichGebert/ponytail@09c434ab73ca43761c5d8b0c5d341926c2fba710",
-    "git:github.com/chandra447/pi-hermes-memory@36be1072f386b5bd059d4820ac0c193e6a88d39d",
-    "git:github.com/earendil-works/pi-review-loop@3822e126b8b9ec05d7796b7897512c773ba9a166",
-    "npm:@ff-labs/pi-fff@0.11.0",
-    "npm:pi-autoresearch@1.9.0",
-    "npm:pi-web-access@0.43.0"
-  ],
-  "quietStartup": true,
   "skills": [
     "!skills/feynman/**"
   ]
