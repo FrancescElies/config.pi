@@ -10,7 +10,7 @@
   ],
   "enableInstallTelemetry": false,
   "quietStartup": true,
-  "externalEditor": "nvim --clean",
+  "externalEditor": "nvim",
   "hideThinkingBlock": false,
   "defaultThinkingLevel": "medium",
   "defaultProvider": "github-copilot",
