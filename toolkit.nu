@@ -43,10 +43,12 @@ export def "config pi" [] {
 }
 
 export def "npm install all" [] {
-    ls **/package.json | each {
-        cd ($in.name | path dirname)
+    for x in (glob agent/{extensions,skills}/*/package.json) {
+        print $"(ansi purple_bold)($x)(ansi reset)"
+        cd ($x | path dirname)
+        print $"(ansi pi)npm install --ignore-scripts(ansi reset)"
         npm install --ignore-scripts
-  }
+    }
 }
 
 export def bootstrap [] {
