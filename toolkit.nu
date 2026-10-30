@@ -42,6 +42,14 @@ export def "config pi" [] {
     symlink --force $settings_json settings.json
 }
 
+export def "npm install all" [] {
+    ls **/package.json | each {
+        cd ($in.name | path dirname)
+        npm install --ignore-scripts
+  }
+}
+
 export def bootstrap [] {
     config pi
+    npm install all
 }
