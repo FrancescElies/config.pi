@@ -1,5 +1,19 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { spawn } from "node:child_process";
+/**
+ * no-sleep: prevent system sleep while the pi agent is running.
+ *
+ * Env:
+ *   PI_NO_SLEEP                  enable/disable (default true). false/0/no/off disables.
+ *   PI_NO_SLEEP_DISPLAY_AWAKE    keep display awake too (default false).
+ *   PI_NO_SLEEP_SCOPE            "agent" (default) or "session".
+ * Command: /no-sleep [status|on|off|toggle|agent|session]
+ */
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
+const execFileAsync = promisify(execFile);
 import type { ChildProcess } from "node:child_process";
 
 const MACOS = process.platform === "darwin";
@@ -10,31 +24,18 @@ type Level = "info" | "warning" | "error";
 
 // Lazily loaded on Windows only, so a missing/broken native module
 // never breaks extension load on macOS or any other platform.
-type Kernel32 = {
-  SetThreadExecutionState: (flags: number) => number;
-};
-let kernel32: Kernel32 | undefined;
-let kernel32LoadFailed = false;
-
-async function getKernel32(): Promise<Kernel32 | undefined> {
-  if (!WINDOWS || kernel32LoadFailed) {
-    return kernel32;
-  }
-  if (kernel32) {
-    return kernel32;
-  }
+async function setExecutionState(flags: number): Promise<number> {
   try {
-    const koffiModule = await import("koffi");
-    const koffi = (koffiModule as any).default ?? koffiModule;
-    const lib = koffi.load("kernel32.dll");
-    kernel32 = {
-      SetThreadExecutionState: lib.func("uint32 SetThreadExecutionState(uint32 flags)"),
-    };
-    return kernel32;
+    const ps = `Add-Type -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);' -Name K -Namespace W; [W.K]::SetThreadExecutionState(${flags})`;
+    const { stdout } = await execFileAsync("powershell.exe", [
+      "-NoProfile",
+      "-Command",
+      ps,
+    ]);
+    return Number(stdout.trim()) || 0;
   } catch (error) {
-    kernel32LoadFailed = true;
     lastError = error instanceof Error ? error.message : String(error);
-    return undefined;
+    return 0;
   }
 }
 
@@ -54,7 +55,9 @@ function readBooleanEnv(name: string, defaultValue: boolean): boolean {
 }
 
 function readScopeEnv(): Scope {
-  return /^session$/i.test(process.env.PI_NO_SLEEP_SCOPE ?? "") ? "session" : "agent";
+  return /^session$/i.test(process.env.PI_NO_SLEEP_SCOPE ?? "")
+    ? "session"
+    : "agent";
 }
 
 function macosSleepArgs(): string[] {
@@ -66,7 +69,11 @@ function macosSleepArgs(): string[] {
   return args;
 }
 
-function notify(ctx: ExtensionContext | undefined, message: string, level: Level = "info"): void {
+function notify(
+  ctx: ExtensionContext | undefined,
+  message: string,
+  level: Level = "info",
+): void {
   if (ctx?.hasUI) {
     ctx.ui.notify(message, level);
   }
@@ -90,7 +97,11 @@ async function start(ctx?: ExtensionContext): Promise<void> {
       }
       sleepPrevention = undefined;
       lastError = error.message;
-      notify(ctx, `No Sleep: failed to start sleep prevention: ${error.message}`, "error");
+      notify(
+        ctx,
+        `No Sleep: failed to start sleep prevention: ${error.message}`,
+        "error",
+      );
     });
 
     child.once("exit", (code, signal) => {
@@ -101,33 +112,86 @@ async function start(ctx?: ExtensionContext): Promise<void> {
 
       if (code && code !== 0) {
         lastError = `sleep prevention exited with code ${code}`;
-        notify(ctx, `No Sleep: sleep prevention stopped unexpectedly (${lastError}).`, "warning");
+        notify(
+          ctx,
+          `No Sleep: sleep prevention stopped unexpectedly (${lastError}).`,
+          "warning",
+        );
       } else if (signal) {
         lastError = `sleep prevention exited after signal ${signal}`;
-        notify(ctx, `No Sleep: sleep prevention stopped unexpectedly (${lastError}).`, "warning");
+        notify(
+          ctx,
+          `No Sleep: sleep prevention stopped unexpectedly (${lastError}).`,
+          "warning",
+        );
       }
     });
   } else if (WINDOWS) {
-    const lib = await getKernel32();
-    if (!lib) {
-      notify(ctx, `No Sleep: failed to start sleep prevention: ${lastError ?? "koffi unavailable"}`, "error");
-      return;
-    }
-
     let flags = 0x80000001; // ES_CONTINUOUS | ES_SYSTEM_REQUIRED
     if (readBooleanEnv("PI_NO_SLEEP_DISPLAY", false)) {
       flags |= 0x00000002; // ES_DISPLAY_REQUIRED
     }
 
     lastError = undefined;
-    const result = lib.SetThreadExecutionState(flags);
+    const result = await setExecutionState(flags);
     if (result === 0) {
       lastError = "failed to start sleep prevention";
-      notify(ctx, `No Sleep: failed to start sleep prevention: ${lastError}`, "error");
+      notify(
+        ctx,
+        `No Sleep: failed to start sleep prevention: ${lastError}`,
+        "error",
+      );
     } else {
       sleepPreventionActive = true;
       notify(ctx, "No Sleep: active", "info");
     }
+  } else if (process.platform === "linux") {
+    const child = spawn(
+      "systemd-inhibit",
+      [
+        "--what=sleep:idle",
+        "--who=pi",
+        "--why=agent running",
+        "sleep",
+        "infinity",
+      ],
+      { stdio: "ignore" },
+    );
+    child.unref();
+    sleepPrevention = child;
+    lastError = undefined;
+
+    child.once("error", (error) => {
+      if (sleepPrevention !== child) return;
+      sleepPrevention = undefined;
+      lastError = error.message;
+      notify(
+        ctx,
+        `No Sleep: failed to start sleep prevention: ${error.message}`,
+        "error",
+      );
+    });
+
+    child.once("exit", (code, signal) => {
+      if (sleepPrevention !== child) return;
+      sleepPrevention = undefined;
+      if (code && code !== 0) {
+        lastError = `sleep prevention exited with code ${code}`;
+        notify(
+          ctx,
+          `No Sleep: sleep prevention stopped unexpectedly (${lastError}).`,
+          "warning",
+        );
+      } else if (signal) {
+        lastError = `sleep prevention exited after signal ${signal}`;
+        notify(
+          ctx,
+          `No Sleep: sleep prevention stopped unexpectedly (${lastError}).`,
+          "warning",
+        );
+      }
+    });
+    notify(ctx, "No Sleep: active", "info");
   }
 }
 
@@ -149,8 +213,7 @@ async function stop(ctx?: ExtensionContext): Promise<void> {
 
   if (WINDOWS && sleepPreventionActive) {
     // Reset execution state back to normal (ES_CONTINUOUS only).
-    const lib = await getKernel32();
-    lib?.SetThreadExecutionState(0x80000000);
+    await setExecutionState(0x80000000);
     sleepPreventionActive = false;
   }
 }
@@ -246,7 +309,11 @@ export default function noSleepExtension(pi: ExtensionAPI) {
         scope = "session";
         await reconcile(ctx);
       } else if (command && command !== "status") {
-        notify(ctx, "Usage: /no-sleep [status|on|off|toggle|agent|session]", "warning");
+        notify(
+          ctx,
+          "Usage: /no-sleep [status|on|off|toggle|agent|session]",
+          "warning",
+        );
         return;
       }
 
