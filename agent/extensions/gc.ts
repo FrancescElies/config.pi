@@ -23,7 +23,7 @@ export default function (pi: ExtensionAPI) {
         ? `End the body with the line "story ${ticket}" (ticket number copied from the previous commit; always write "story #1234", never a bare "#1234"). `
         : "";
       pi.sendUserMessage(
-        "Write a concise git commit message (subject <=72 chars, optional short body) for this staged diff. " +
+        "Write a short git commit message using a semantic prefix (feat:, fix:, docs:, chore:, refactor:, test:, etc.), subject <=50 chars, optional one-line body. " +
           ticketHint +
           "Print the message, then run `git commit -F -` with the message on stdin without asking for approval.\n\n" +
           "```diff\n" +
