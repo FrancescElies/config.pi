@@ -42,7 +42,7 @@ agent/*.sqlite
 agent/.pi-hermes-locks.*
 agent/auth.json
 agent/bin
-agent/fff/frecency.mdb/
+agent/fff/
 agent/git
 agent/mcp-cache.json
 agent/mcp-npx-cache.json
@@ -60,3 +60,4 @@ agent/settings.choice
 agent/tmp
 agent/trust.json
 agent/web-search-cache/
+opencode-catalog-cache.json
