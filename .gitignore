@@ -53,6 +53,10 @@ agent/pi-hermes-memory/
 agent/projects-memory/
 agent/sessions
 agent/settings.json
+agent/settings-*.json
+agent/settings.choice
+!agent/settings-kilo.json
+!agent/settings-copilot.json
 agent/tmp
 agent/trust.json
 agent/web-search-cache/

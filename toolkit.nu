@@ -20,26 +20,36 @@ def symlink [
 
     if $nu.os-info.family == 'windows' {
         if ($existing | path type) == 'dir' {
-            print $"dir link created ($new_link_name)"
             mklink /D $new_link_name $existing
         } else {
-            print $"file link created ($new_link_name)"
             mklink $new_link_name $existing
         }
     } else {
-        print $"link created ($new_link_name)"
         ln -s $existing $new_link_name | ignore
     }
 }
 
-export def "config pi" [] {
+def complete_settings [] { ['settings-kilo.json' 'settings-copilot.json'] }
+const choice_file = 'settings.choice'
+
+export def "config pi" [settings_json: string@complete_settings] {
+    print $"(ansi pi)symlinking ($current_dir) -> ~/.pi(ansi reset)"
     symlink --force $current_dir ~/.pi
     cd ($current_dir | path join agent)
-    let settings_json = match $nu.os-info.name {
-        "windows" => 'settings-win32.json',
-        _ => 'settings-unix.json' ,
-    }
-    symlink --force $settings_json settings.json
+    let choice_file = 'settings.choice'
+    print $"(ansi pi)saving choice ($settings_json) -> ($choice_file)(ansi reset)"
+    $settings_json | save --force $choice_file
+    print $"(ansi pi)copying ($settings_json) -> settings.json(ansi reset)"
+    cp --force $settings_json settings.json
+}
+
+export def "sync settings" [] {
+    cd ($current_dir | path join agent)
+    let choice_file = 'settings.choice'
+    if not ($choice_file | path exists) { error make { msg: "settings.choice missing" } }
+    let settings_json = (open $choice_file | str trim)
+    print $"(ansi pi)syncing settings.json -> ($settings_json)(ansi reset)"
+    cp --force settings.json $settings_json
 }
 
 export def "npm install all" [] {
@@ -51,7 +61,15 @@ export def "npm install all" [] {
     }
 }
 
-export def bootstrap [] {
-    config pi
+export def bootstrap [settings_json: string@complete_settings] {
+    config pi $settings_json
     npm install all
+}
+
+export def main [] {
+    print "Available commands:"
+    print "  config pi <settings_json>   - configure pi (symlink + settings)"
+    print "  sync settings              - sync settings.json to template (from choice)"
+    print "  bootstrap <settings_json>   - config pi + npm install all"
+    print "  npm install all            - install npm deps"
 }
