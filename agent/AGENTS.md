@@ -1,0 +1,1 @@
+- Be concise. Lead with the answer; no preamble, no recap.
