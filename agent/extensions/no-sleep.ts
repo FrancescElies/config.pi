@@ -12,6 +12,7 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { spawn, execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 import type { ChildProcess } from "node:child_process";
@@ -146,8 +147,14 @@ async function start(ctx?: ExtensionContext): Promise<void> {
       notify(ctx, "No Sleep: active", "info");
     }
   } else if (process.platform === "linux") {
+    // systemd-inhibit may be absent in containers/minimal images; skip there.
+    const inhibitPath = ["/usr/bin/systemd-inhibit", "/bin/systemd-inhibit"].find((p) => existsSync(p));
+    if (!inhibitPath) {
+      lastError = "systemd-inhibit not available; skipping";
+      return;
+    }
     const child = spawn(
-      "systemd-inhibit",
+      inhibitPath,
       [
         "--what=sleep:idle",
         "--who=pi",
