@@ -25,7 +25,7 @@ export default function (pi: ExtensionAPI) {
       pi.sendUserMessage(
         "Write a concise git commit message (subject <=72 chars, optional short body) for this staged diff. " +
           ticketHint +
-          "Show it to me and ask for approval; only after I approve, run `git commit -F -` with the message on stdin.\n\n" +
+          "Print the message, then run `git commit -F -` with the message on stdin without asking for approval.\n\n" +
           "```diff\n" +
           stdout +
           "\n```",
