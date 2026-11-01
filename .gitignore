@@ -61,3 +61,4 @@ agent/tmp
 agent/trust.json
 agent/web-search-cache/
 opencode-catalog-cache.json
+agent/wezterm-subagents/
