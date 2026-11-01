@@ -3,8 +3,14 @@
   "app.message.followUp": ["alt+enter"],
   "tui.editor.cursorUp": ["up", "alt+k"],
   "tui.editor.cursorDown": ["down", "alt+j"],
-  "tui.select.up": ["up", "alt+k"],
-  "tui.select.down": ["down", "alt+j"],
-  "tui.altScreen.halfPageUp": ["alt+i"],
-  "tui.altScreen.halfPageDown": ["alt+o"]
+  "tui.select.up": ["up", "alt+p"],
+  "tui.select.down": ["down", "alt+n"],
+  "tui.altScreen.halfPageUp": ["alt+k"],
+  "tui.altScreen.halfPageDown": ["alt+j"],
+  "tui.altScreen.lineUp": ["alt+shift+k"],
+  "tui.altScreen.lineDown": ["alt+shift+j"],
+  "tui.altScreen.search": ["ctrl+f"],
+  "tui.editor.historyPrevious": ["alt+p"],
+  "tui.editor.historyNext": ["alt+n"],
+  "app.message.dequeue": ["alt+q"]
 }
