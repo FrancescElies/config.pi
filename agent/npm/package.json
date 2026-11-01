@@ -12,7 +12,7 @@
     "pi-free": "^2.8.6",
     "pi-hermes-memory": "^0.9.11",
     "pi-mcp-adapter": "^6.0.0",
-    "pi-subagents": "^0.81.0",
+    "pi-skill-palette": "^2.2.0",
     "pi-token-burden": "^0.6.5",
     "pi-vim": "^0.14.2",
     "pi-web-access": "^0.43.0"
