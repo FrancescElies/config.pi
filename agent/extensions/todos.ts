@@ -311,7 +311,7 @@ function filterTodos(
     .map((match) => match.todo);
 }
 
-class jodoSelectorComponent extends Container implements Focusable {
+class TodoSelectorComponent extends Container implements Focusable {
   private searchInput: Input;
   private listContainer: Container;
   private allTodos: TodoFrontMatter[];
