@@ -74,9 +74,11 @@ const PASSTHROUGH_NO_ARG: ReadonlySet<string> = new Set([
   "-w",
   "-l",
   "-o",
-  "-h",
   "-H",
   "-q",
+  "-x",
+  "-a",
+  "-b",
   "-F",
   "-P",
   "--null",
@@ -86,6 +88,8 @@ const PASSTHROUGH_WITH_ARG: ReadonlySet<string> = new Set(["-A", "-B", "-C", "-f
 
 const SHORT_FLAG_ACTIONS: ReadonlyMap<string, FlagAction> = new Map([
   ["-c", { kind: "expand", to: ["-c", "--include-zero"] }],
+  ["-L", { kind: "rename", to: "--files-without-match" }], // rg -L is --follow
+  ["-h", { kind: "rename", to: "-I" }], // rg -h is help
 ]);
 
 const LONG_TO_FLAG: ReadonlyMap<string, FlagAction> = new Map([
@@ -94,9 +98,12 @@ const LONG_TO_FLAG: ReadonlyMap<string, FlagAction> = new Map([
   ["--invert-match", { kind: "rename", to: "-v" }],
   ["--word-regexp", { kind: "rename", to: "-w" }],
   ["--files-with-matches", { kind: "rename", to: "-l" }],
+  ["--files-without-match", { kind: "rename", to: "--files-without-match" }],
+  ["--line-regexp", { kind: "rename", to: "-x" }],
+  ["--text", { kind: "rename", to: "-a" }],
   ["--count", { kind: "expand", to: ["-c", "--include-zero"] }],
   ["--only-matching", { kind: "rename", to: "-o" }],
-  ["--no-filename", { kind: "rename", to: "-h" }],
+  ["--no-filename", { kind: "rename", to: "-I" }],
   ["--with-filename", { kind: "rename", to: "-H" }],
   ["--quiet", { kind: "rename", to: "-q" }],
   ["--silent", { kind: "rename", to: "-q" }],
@@ -172,6 +179,7 @@ export function translateGrepArgs(args: string[]): string[] | undefined {
     if (arg.startsWith("--regexp=")) {
       const pattern = arg.slice("--regexp=".length);
       translated.push("-e", fixedStrings || extendedRegexp ? pattern : convertBreToEre(pattern));
+      patternSeen = true;
       i++;
       continue;
     }
@@ -239,6 +247,7 @@ export function translateGrepArgs(args: string[]): string[] | undefined {
 
     if (arg === "-e") {
       translated.push("-e");
+      patternSeen = true;
       if (i + 1 < args.length) {
         i++;
         translated.push(fixedStrings || extendedRegexp ? args[i] : convertBreToEre(args[i]));
@@ -262,6 +271,7 @@ export function translateGrepArgs(args: string[]): string[] | undefined {
 
     if (PASSTHROUGH_WITH_ARG.has(arg)) {
       translated.push(arg);
+      if (arg === "-f") patternSeen = true;
       if (i + 1 < args.length) {
         i++;
         translated.push(args[i]);
