@@ -244,6 +244,7 @@ class BtwOverlay extends Container implements Focusable {
   private readonly getStatus: () => string;
   private readonly onSubmitCallback: (value: string) => void;
   private readonly onDismissCallback: () => void;
+  private readonly onToggleCallback: () => void;
   private _focused = false;
   private scrollOffset = 0; // lines scrolled up from bottom
   private lastPage = 10;
@@ -268,8 +269,10 @@ class BtwOverlay extends Container implements Focusable {
     getStatus: () => string,
     onSubmit: (value: string) => void,
     onDismiss: () => void,
+    onToggle: () => void = onDismiss,
   ) {
     super();
+    this.onToggleCallback = onToggle;
     this.tui = tui;
     this.theme = theme;
     this.keybindings = keybindings;
@@ -297,6 +300,10 @@ class BtwOverlay extends Container implements Focusable {
   }
 
   handleInput(data: string): void {
+    if (matchesKey(data, "ctrl+b")) {
+      this.onToggleCallback();
+      return;
+    }
     if (this.keybindings.matches(data, "tui.select.cancel")) {
       this.onDismissCallback();
       return;
@@ -310,6 +317,11 @@ class BtwOverlay extends Container implements Focusable {
           this.scrollOffset = Math.max(0, this.scrollOffset - 3);
       }
       this.tui.requestRender();
+      return;
+    }
+    // Like continue.ts: Ctrl+Enter sends a literal "continue" (busy guard is in runBtwPrompt)
+    if (matchesKey(data, "ctrl+enter")) {
+      this.onSubmitCallback("continue");
       return;
     }
     const step =
@@ -439,7 +451,7 @@ class BtwOverlay extends Container implements Focusable {
       this.frameLine(
         this.theme.fg(
           "dim",
-          "Enter submit · PgUp/PgDn or Shift+↑/↓ scroll · Esc close",
+          "Enter submit · Ctrl+Enter continue · PgUp/PgDn or Shift+↑/↓ scroll · Esc close",
         ),
         innerWidth,
       ),
@@ -880,6 +892,7 @@ export default function (pi: ExtensionAPI) {
             () => {
               void closeOverlayFlow(ctx);
             },
+            () => dismissOverlay(),
           );
 
           overlay.focused = true;
@@ -1161,6 +1174,18 @@ export default function (pi: ExtensionAPI) {
 
       await ensureOverlay(ctx);
       await runBtwPrompt(ctx, question);
+    },
+  });
+
+  pi.registerShortcut("alt+shift+b", {
+    description: "Toggle BTW side-chat window",
+    handler: async (ctx) => {
+      if (overlayRuntime) {
+        overlayRuntime.close?.();
+        overlayRuntime = null;
+      } else {
+        await ensureOverlay(ctx);
+      }
     },
   });
 
